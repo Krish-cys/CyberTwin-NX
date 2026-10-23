@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberTwin-NX</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#map" aria-label="CyberTwin-NX home">
+    <img src="/static/logo.svg" alt="" width="34" height="34">
+    <span class="brand-name">CyberTwin<b>-NX</b></span>
+    <span class="brand-sub">Network Digital Twin</span>
+  </a>
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button role="tab" data-tab="map" aria-selected="true">Network Map</button>
+    <button role="tab" data-tab="whatif" aria-selected="false">What-If Lab</button>
+    <button role="tab" data-tab="incident" aria-selected="false">Incident Response</button>
+    <button role="tab" data-tab="audit" aria-selected="false">Audit &amp; Fidelity</button>
+  </nav>
+  <div class="status">
+    <span class="pill ok" title="The dashboard only plans commands; it never changes a network"><i class="dot"></i>DRY-RUN SAFE</span>
+    <button id="themeBtn" class="icon-btn" aria-label="Toggle light/dark theme" title="Toggle theme">&#9680;</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ NETWORK MAP ============ -->
+  <section id="tab-map" class="view" aria-labelledby="h-map">
+    <div class="view-head"><h1 id="h-map">Live topology</h1>
+      <p class="muted">The twin's model of the network. Colour = link utilisation, moving dashes = traffic. Click a node for details.</p></div>
+    <div class="grid two">
+      <div class="panel map-panel"><div id="map-main" class="map"></div><div id="legend" class="legend"></div></div>
+      <div class="stack">
+        <div class="kpis" id="kpi-map"></div>
+        <div class="panel"><h2>Node details</h2><div id="node-detail" class="muted">Select a node on the map.</div></div>
+        <div class="panel"><h2>Offered traffic</h2><div class="scroll"><table class="tbl" id="tbl-demands"></table></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHAT-IF LAB ============ -->
+  <section id="tab-whatif" class="view" hidden aria-labelledby="h-whatif">
+    <div class="view-head"><h1 id="h-whatif">What-if lab</h1>
+      <p class="muted">Break something inside the twin and see the predicted impact. Nothing touches the real network.</p></div>
+    <form id="wi-form" class="panel form-row">
+      <label>Scenario
+        <select id="wi-scenario">
+          <option value="link_failure">Link failure</option>
+          <option value="router_failure">Router / switch failure</option>
+          <option value="surge">Traffic surge</option>
+          <option value="compromise">Host compromise</option>
+        </select></label>
+      <div id="wi-fields" class="fields"></div>
+      <button class="btn primary" type="submit" id="wi-run">Simulate</button>
+    </form>
+    <div id="wi-error" class="error" hidden></div>
+    <div id="wi-result" hidden>
+      <div class="kpis" id="kpi-wi"></div>
+      <div class="grid two">
+        <div class="panel map-panel">
+          <div class="seg" role="group" aria-label="Map state"><button data-v="before" aria-pressed="false">Before</button><button data-v="after" aria-pressed="true">After</button></div>
+          <div id="map-wi" class="map"></div>
+        </div>
+        <div class="stack">
+          <div class="panel"><h2>Flow impact</h2><div class="scroll"><table class="tbl" id="tbl-flows"></table></div></div>
+          <div class="panel" id="lateral-panel" hidden><h2>Lateral-movement exposure</h2><div id="lateral"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INCIDENT RESPONSE ============ -->
+  <section id="tab-incident" class="view" hidden aria-labelledby="h-inc">
+    <div class="view-head"><h1 id="h-inc">Incident response</h1>
+      <p class="muted">observe &rarr; detect &rarr; simulate candidate responses in the twin &rarr; safety gate &rarr; act (dry-run) &rarr; verify.</p></div>
+    <form id="inc-form" class="panel form-row">
+      <label>Compromised host <select id="inc-host"></select></label>
+      <label>Random seed <input id="inc-seed" type="number" min="0" max="10000" value="0"></label>
+      <button class="btn danger" type="submit" id="inc-run">&#9889; Launch attack</button>
+      <button class="btn ghost" type="button" id="inc-skip" hidden>Skip animation</button>
+    </form>
+    <div id="inc-error" class="error" hidden></div>
+    <div id="inc-stage" hidden>
+      <div class="grid two">
+        <div class="panel map-panel">
+          <div class="map-cap"><span id="inc-phase" class="pill">BASELINE</span></div>
+          <div id="map-inc" class="map"></div>
+        </div>
+        <div class="stack">
+          <div class="panel"><h2>Anomaly score per host</h2>
+            <p class="muted small">Lower = more anomalous. The dashed line is the detector threshold learned from baseline traffic only.</p>
+            <div id="chart-anom"></div></div>
+          <div class="kpis" id="kpi-inc"></div>
+        </div>
+      </div>
+      <ol id="timeline" class="timeline"></ol>
+    </div>
+  </section>
+
+  <!-- ============ AUDIT ============ -->
+  <section id="tab-audit" class="view" hidden aria-labelledby="h-audit">
+    <div class="view-head"><h1 id="h-audit">Audit &amp; fidelity</h1>
+      <p class="muted">How well does the twin predict reality, and what did the system do about it? Read from <code>data/runs/</code>.</p></div>
+    <div class="grid two">
+      <div class="panel"><h2>Latency error (MAPE)</h2><p class="muted small">Raw simulator vs calibrated twin, per monitoring tick. Lower is better.</p><div id="chart-fid"></div></div>
+      <div class="panel"><h2>Predicted vs actual (verified actions)</h2><div class="scroll"><table class="tbl" id="tbl-verify"></table></div></div>
+    </div>
+    <div class="panel"><h2>Action audit trail</h2><div id="audit-list"></div></div>
+  </section>
+</main>
+
+<footer class="foot muted small">CyberTwin-NX &middot; synthetic emulator results validate plumbing, not real-world accuracy &middot; commands are never executed from this UI</footer>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

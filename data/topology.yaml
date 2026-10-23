@@ -1,0 +1,73 @@
+# CyberTwin-NX reference topology (single source of truth).
+# The twin, the synthetic emulator AND the Containerlab files are all generated from this.
+#
+#            srv1            srv2
+#             |               |
+#   s1 --- r1 ---- r2 ------- r3 --- s2
+#  h1 h2 h3   \_____________/   h4 h5 h6
+#                (backup 200M)
+name: cybertwin
+
+nodes:
+  r1: {role: router}
+  r2: {role: router}
+  r3: {role: router}
+  s1: {role: switch}
+  s2: {role: switch}
+  h1: {role: host, zone: users}
+  h2: {role: host, zone: users}
+  h3: {role: host, zone: users}
+  h4: {role: host, zone: branch}
+  h5: {role: host, zone: branch}
+  h6: {role: host, zone: branch}
+  srv1: {role: server, zone: dmz, value: 5}
+  srv2: {role: server, zone: data, value: 10}
+
+links:
+  # core
+  - {a: r1, b: r2, cap_mbps: 1000, lat_ms: 2}
+  - {a: r2, b: r3, cap_mbps: 1000, lat_ms: 2}
+  - {a: r1, b: r3, cap_mbps: 200,  lat_ms: 6}     # backup path
+  # servers
+  - {a: r2, b: srv1, cap_mbps: 1000, lat_ms: 0.3}
+  - {a: r3, b: srv2, cap_mbps: 1000, lat_ms: 0.3}
+  # user segment
+  - {a: r1, b: s1, cap_mbps: 1000, lat_ms: 0.2}
+  - {a: s1, b: h1, cap_mbps: 100, lat_ms: 0.2}
+  - {a: s1, b: h2, cap_mbps: 100, lat_ms: 0.2}
+  - {a: s1, b: h3, cap_mbps: 100, lat_ms: 0.2}
+  # branch segment
+  - {a: r3, b: s2, cap_mbps: 1000, lat_ms: 0.2}
+  - {a: s2, b: h4, cap_mbps: 100, lat_ms: 0.2}
+  - {a: s2, b: h5, cap_mbps: 100, lat_ms: 0.2}
+  - {a: s2, b: h6, cap_mbps: 100, lat_ms: 0.2}
+
+# Steady-state offered load (Mbps). priority: 1 bulk .. 3 critical
+demands:
+  - {name: "web:h1>srv1",    src: h1, dst: srv1, mbps: 30, app: web,    priority: 2}
+  - {name: "web:h2>srv1",    src: h2, dst: srv1, mbps: 20, app: web,    priority: 2}
+  - {name: "db:h3>srv2",     src: h3, dst: srv2, mbps: 15, app: db,     priority: 3}
+  - {name: "web:h4>srv1",    src: h4, dst: srv1, mbps: 25, app: web,    priority: 2}
+  - {name: "db:h5>srv2",     src: h5, dst: srv2, mbps: 10, app: db,     priority: 3}
+  - {name: "voip:h6>h1",     src: h6, dst: h1,   mbps: 5,  app: voip,   priority: 3}
+  - {name: "backup:h2>srv2", src: h2, dst: srv2, mbps: 40, app: backup, priority: 1}
+  - {name: "backup:h4>srv2", src: h4, dst: srv2, mbps: 30, app: backup, priority: 1}
+
+# Attack-graph edges for lateral movement: probability that an attacker who owns
+# `src` can compromise `dst` (a modelling assumption, NOT a measurement).
+access:
+  - {src: h1, dst: h2,   via: ssh-reuse,   p: 0.50}
+  - {src: h2, dst: h1,   via: ssh-reuse,   p: 0.50}
+  - {src: h2, dst: h3,   via: smb,         p: 0.40}
+  - {src: h3, dst: h2,   via: smb,         p: 0.40}
+  - {src: h1, dst: h3,   via: ssh-reuse,   p: 0.30}
+  - {src: h2, dst: srv1, via: web-vuln,    p: 0.30}
+  - {src: h1, dst: srv1, via: web-vuln,    p: 0.30}
+  - {src: h3, dst: srv2, via: db-creds,    p: 0.60}
+  - {src: h2, dst: srv2, via: db-creds,    p: 0.20}
+  - {src: srv1, dst: srv2, via: app-to-db, p: 0.50}
+  - {src: h2, dst: h4,   via: rdp,         p: 0.15}
+  - {src: h4, dst: h5,   via: smb,         p: 0.40}
+  - {src: h5, dst: h4,   via: smb,         p: 0.40}
+  - {src: h5, dst: h6,   via: smb,         p: 0.40}
+  - {src: h5, dst: srv2, via: db-creds,    p: 0.60}
